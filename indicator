@@ -1,0 +1,113 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// @version=4
+study("NV Indicator", overlay=true)
+
+
+// Engulfing Candle Script
+isGreenCandle() => 
+    if close > open
+        true
+    else
+        false
+
+lowerShadow() => 
+    if isGreenCandle()
+        open - low
+    else 
+        close - low
+
+upperShadow() => 
+    if isGreenCandle()
+        high - close
+    else 
+        high - open
+
+realBody() => 
+    abs(close - open)
+
+bullish_engulfing=(open[1] > close[1] and close > open and close[1] >= open and open[1] < close)
+plotshape(bullish_engulfing,  title= "Bullish Engulfing", location=location.belowbar, color=color.lime, style=shape.triangleup, text="EN")
+
+bearish_engulfing=(close[1] > open[1] and open > close and close[1] <= open and close < open[1])
+plotshape(bearish_engulfing,  title= "Bearish Candle", location=location.abovebar, color=color.red, style=shape.triangledown, text="EN")
+
+// Pinbar Candle Script
+pinbar_body = abs(close-open)
+pinbar_upshadow = open>close?(high-open):(high-close)
+pinbar_downshadow = open>close?(close-low):(open-low)
+pinbar_bearish = close[1]>open[1]?(pinbar_body[1]>pinbar_body?(pinbar_upshadow>0.5*pinbar_body?(pinbar_upshadow>2*pinbar_body?1:0):0):0):0
+pinbar_bullish = open[1]>close[1]?(pinbar_body[1]>pinbar_body?(pinbar_downshadow>0.5*pinbar_body?(pinbar_downshadow>2*pinbar_body?1:0):0):0):0
+plotshape(pinbar_bearish, style=shape.triangledown, color=color.red)
+plotshape(pinbar_bullish, style=shape.triangleup, color=color.lime,location=location.belowbar)
+plotchar(pinbar_bearish, text="PB", char="", color=color.red)
+plotchar(pinbar_bullish, text="PB", char="", color=color.lime,location=location.belowbar)
+
+
+// Doji Candle Script
+
+doji=(abs(close-open)/(high-low)<0.1 and (high-max(close,open))>(3*abs(close-open)) and (min(close,open)-low)>(3*abs(close-open)))
+plotshape(doji,title="Doji",text='D',color=color.white, style=shape.circle,location=location.belowbar)
+
+// Morning Star / Evening Star Candle Script
+
+candle1_Open = open[2]
+candle1_Close = close [2]
+candle2_Open = open[1]
+candle2_Close = close[1]
+candle2_Low = low[1]
+candle2_High = high[1]
+candle3_Open = open
+candle3_Close = close
+
+//bullish calc first
+candle1_BodySize = candle1_Open - candle1_Close 
+candle2_BodySize = candle2_Close - candle2_Open
+candle2_WickLength = candle2_High - candle2_Close
+candle3_BodySize = candle3_Close - candle3_Open
+
+//logic to figure out bullishish Star pattern formed
+bullish_star = (candle1_Close < candle1_Open) and ((candle2_Open <= candle2_Close) and (candle2_BodySize <= (.333333*(candle1_BodySize))) and (candle2_WickLength > candle2_BodySize)) and ((candle3_Open >= candle2_Close) and (candle3_Close > candle3_Open) and (candle2_BodySize <= (.333333*(candle3_BodySize))) and (candle3_Close > candle1_Open))
+
+//plot the indicator on chart
+plotshape(bullish_star, style = shape.triangleup, location = location.belowbar, color = color.green, size = size.small, text = 'ES')
+
+//now calc bearish
+candle1_BodySize := candle1_Close - candle1_Open 
+candle2_BodySize := candle2_Open - candle2_Close
+candle2_WickLength := candle2_Close - candle2_Low
+candle3_BodySize := candle3_Open - candle3_Close
+
+//logic to figure out bearish Star pattern forming
+bearish_star = (candle1_Close > candle1_Open) and ((candle2_Open >= candle2_Close) and (candle2_BodySize <= (.333333*(candle1_BodySize))) and (candle2_WickLength > candle2_BodySize)) and ((candle3_Open >= candle2_Close) and (candle3_Close < candle3_Open) and (candle2_BodySize <= (.333333*(candle3_BodySize))) and (candle3_Close < candle1_Open))
+
+//plot the indicator on chart
+plotshape(bearish_star, style = shape.triangledown, location = location.abovebar, color = color.red, size = size.small, text = 'MS')
+
+//below allows you to setup alerts
+alertcondition(bullish_star, title = "Bullish Star", message = "[CurrencyPair] [TimeFrame], Bullish Star formed")
+alertcondition(bearish_star, title = "Bearish Star", message = "[CurrencyPair] [TimeFrame], Bearish Star formed")
+
+// Tweezer Candle Script
+
+tweezerBodyHeight = input(title="Tweezer Body, Max Height (Pips)", type=input.integer, minval=1, maxval=10000, step=1, defval=100, confirm=false)
+tweezerBodySimilarity = input(title="Tweezer Body, Similarity (>%)", type=input.float, minval=1, maxval=100, step=1, defval=80, confirm=false)
+tweezerTailSimilarity = input(title="Tweezer Tail, Similarity (>%)", type=input.float, minval=1, maxval=100, step=1, defval=20, confirm=false)
+tweezerTailProportion = input(title="Tweezer Tail, Proportion (<%)", type=input.float, minval=1, maxval=100, step=1, defval=20, confirm=false)
+
+//sub algorithm
+sameBodyHeight = ((abs(close[1] - open[1]) / abs(close - open)) > (tweezerBodySimilarity/100)) and ((abs(close[1] - open[1]) / abs(close - open)) < (2.0 - tweezerBodySimilarity/100))
+topTailSimilarity = ((high[1] - close[1]) / (high - open) > (tweezerTailSimilarity/100)) and ((high[1] - close[1]) / (high - open) < (2.0 - tweezerTailSimilarity/100))
+bottomTailSimilarity = ((close[1] - low[1]) / (open - low) > (tweezerTailSimilarity/100)) and ((close[1] - low[1]) / (open - low) < (2.0 - tweezerTailSimilarity/100))
+topTail = ((open[1] - low[1]) / (close[1] - open[1]) < (tweezerTailProportion / 100)) and ((close - low) / (open - close) < (tweezerTailProportion / 100))
+bottomTail = ((high[1] - open[1]) / (open[1] - close[1]) < (tweezerTailProportion / 100)) and ((high - close) / (close - open) < (tweezerTailProportion / 100))
+
+//scanner algorithm
+tweezerTop = (abs(close - open) / syminfo.mintick <= tweezerBodyHeight) and (close[1] > open[1]) and (close < open) and (sameBodyHeight == true) and (topTail == true) and (topTailSimilarity == true)
+tweezerBottom = (abs(close - open) / syminfo.mintick <= tweezerBodyHeight) and (close[1] < open[1]) and (close > open) and (sameBodyHeight == true) and (bottomTail == true) and (bottomTailSimilarity == true)
+
+//chart plotters
+plotshape(tweezerTop, style=shape.arrowdown, location=location.belowbar, color=color.red, size = size.large, text='Tweezer Top')
+plotshape(tweezerBottom, style=shape.arrowup, location=location.abovebar, color=color.green, size = size.large, text='Tweezer Bottom')
+
+
+
